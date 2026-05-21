@@ -1,0 +1,11 @@
+{
+  "name": "Sedimentos y Socavación",
+  "short_name": "Socavación",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#0f5c8c",
+  "icons": [
+    {"src":"assets/icon.svg","sizes":"any","type":"image/svg+xml"}
+  ]
+}

@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sedimentos y Socavación | App técnica estática</title>
+  <meta name="description" content="Aplicación estática para modelación hidráulica simplificada, arrastre de sedimentos MPM, socavación Neill, Lischtvan-Levediev, Bormann-Julien y frontera móvil." />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="manifest" href="manifest.json" />
+</head>
+<body>
+  <header class="hero">
+    <div>
+      <p class="eyebrow">Herramienta preliminar · GitHub Pages · sin npm · sin build</p>
+      <h1>Transporte de Sedimentos y Socavación</h1>
+      <p class="lead">Desarrollo técnico inspirado en los apéndices de modelación hidráulica, arrastre de sedimentos y socavación generalizada. Permite ingresar resultados tipo HEC‑RAS, calcular MPM, Neill, Lischtvan‑Levediev, socavación local y frontera móvil.</p>
+    </div>
+    <div class="hero-card">
+      <strong>Flujo de trabajo</strong>
+      <ol>
+        <li>Definir cauce, condición, período de retorno y granulometría.</li>
+        <li>Ingresar o pegar secciones hidráulicas.</li>
+        <li>Calcular arrastre, socavación y balance temporal.</li>
+        <li>Exportar tablas, CSV, JSON o informe HTML.</li>
+      </ol>
+    </div>
+  </header>
+
+  <main class="layout">
+    <nav class="tabs" aria-label="Navegación de módulos">
+      <button class="tab is-active" data-tab="config">1. Proyecto</button>
+      <button class="tab" data-tab="sections">2. Secciones hidráulicas</button>
+      <button class="tab" data-tab="local">3. Socavación local</button>
+      <button class="tab" data-tab="temporal">4. Variación temporal</button>
+      <button class="tab" data-tab="results">5. Resultados</button>
+      <button class="tab" data-tab="method">6. Ecuaciones</button>
+    </nav>
+
+    <section id="config" class="panel is-active">
+      <div class="grid two">
+        <article class="card">
+          <h2>Datos generales</h2>
+          <div class="form-grid">
+            <label>Nombre del proyecto<input id="projectName" value="Ejemplo PASM 157 - análisis preliminar" /></label>
+            <label>Cauce / quebrada
+              <select id="riverSelect"></select>
+            </label>
+            <label>Condición
+              <select id="conditionSelect">
+                <option>Sin Proyecto</option>
+                <option>Con Proyecto</option>
+              </select>
+            </label>
+            <label>Período de retorno
+              <select id="periodSelect">
+                <option value="2">2 años</option><option value="5">5 años</option><option value="10">10 años</option><option value="25">25 años</option><option value="50">50 años</option><option value="100" selected>100 años</option><option value="200">200 años</option>
+              </select>
+            </label>
+            <label>Longitud total del tramo (m)<input type="number" id="totalLength" value="1000" step="1" /></label>
+            <label>Distancia entre secciones Δx (m)<input type="number" id="dxDefault" value="100" step="1" /></label>
+            <label>Coeficiente de Manning n<input type="number" id="nDefault" value="0.040" step="0.001" /></label>
+            <label>Pendiente hidráulica por defecto J (m/m)<input type="number" id="slopeDefault" value="0.045" step="0.0001" /></label>
+          </div>
+          <div class="actions">
+            <button id="loadPreset" class="primary">Cargar datos del cauce</button>
+            <button id="generateSections">Generar secciones</button>
+            <button id="calculateBtn">Calcular todo</button>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>Granulometría y sedimento</h2>
+          <div class="form-grid">
+            <label>D50 (mm)<input type="number" id="d50" value="28.0" step="0.001" /></label>
+            <label>D84 (mm)<input type="number" id="d84" value="84.4" step="0.001" /></label>
+            <label>D90 (mm)<input type="number" id="d90" value="118.67" step="0.001" /></label>
+            <label>Dm medio (mm)<input type="number" id="dm" value="28.17" step="0.001" /></label>
+            <label>γ agua (kg/m³)<input type="number" id="gammaW" value="1000" step="1" /></label>
+            <label>γ sedimento (kg/m³)<input type="number" id="gammaS" value="1800" step="1" /></label>
+            <label>Ψ Lischtvan<input type="number" id="psi" value="1.326" step="0.001" /></label>
+            <label>χ Lischtvan<input type="number" id="chi" value="0.308" step="0.001" /></label>
+            <label>Porosidad λ<input type="number" id="porosity" value="0.35" step="0.01" /></label>
+            <label>Densidad aparente sed. (ton/m³)<input type="number" id="bulkDensity" value="1.8" step="0.01" /></label>
+          </div>
+          <div class="actions">
+            <button id="autoChi">Estimar χ según Dm</button>
+            <button id="saveJson">Guardar proyecto JSON</button>
+            <label class="file-btn">Cargar JSON<input type="file" id="loadJson" accept="application/json" /></label>
+          </div>
+        </article>
+      </div>
+
+      <article class="card note">
+        <h2>Alcance</h2>
+        <p>La aplicación reproduce el desarrollo tabular: parámetros hidráulicos por perfil, gasto sólido unitario, gasto sólido total, socavación por Neill, socavación por Lischtvan‑Levediev, promedio de métodos, socavación local y evolución temporal simplificada de la frontera móvil.</p>
+        <p>Para diseño definitivo, los resultados deben contrastarse con levantamiento topográfico, granulometría de terreno, hidrología oficial, calibración hidráulica y modelación 1D/2D especializada.</p>
+      </article>
+    </section>
+
+    <section id="sections" class="panel">
+      <div class="grid two">
+        <article class="card">
+          <h2>Ingreso rápido desde tabla</h2>
+          <p>Pega una tabla exportada desde HEC‑RAS o Excel. Encabezados sugeridos: <code>PT, Estacion, Q, Fondo, EH, E, J, Velocidad, Area, Ancho, R, Froude, Tirante</code>.</p>
+          <textarea id="pasteBox" rows="8" spellcheck="false" placeholder="PT\tEstacion\tQ\tFondo\tEH\tE\tJ\tVelocidad\tArea\tAncho\tR\tFroude\tTirante"></textarea>
+          <div class="actions">
+            <button id="parseTable">Pegar como secciones</button>
+            <button id="addSection">Agregar fila</button>
+            <button id="clearSections" class="danger">Limpiar secciones</button>
+          </div>
+        </article>
+        <article class="card">
+          <h2>Interpretación hidráulica</h2>
+          <p>La app acepta variables calculadas por un modelo hidráulico. Si faltan algunos datos, los estima con una sección rectangular equivalente usando ancho superficial, tirante, pendiente y Manning.</p>
+          <ul class="compact">
+            <li><strong>J:</strong> pendiente del eje hidráulico o línea de energía.</li>
+            <li><strong>R:</strong> radio hidráulico.</li>
+            <li><strong>Ancho:</strong> ancho superficial de escurrimiento.</li>
+            <li><strong>Froude:</strong> régimen subcrítico, crítico o torrencial.</li>
+          </ul>
+        </article>
+      </div>
+      <article class="card wide">
+        <div class="table-head">
+          <h2>Secciones transversales</h2>
+          <div class="actions slim"><button id="reindexSections">Reordenar por estación</button></div>
+        </div>
+        <div class="table-wrap">
+          <table id="sectionsTable"></table>
+        </div>
+      </article>
+    </section>
+
+    <section id="local" class="panel">
+      <div class="grid two">
+        <article class="card">
+          <h2>Socavación local al pie de umbral / descarga</h2>
+          <p>Calcula una fosa local con la expresión de Bormann y Julien usada para una lámina crítica o torrencial que descarga hacia el nivel de aguas abajo.</p>
+          <div class="form-grid">
+            <label>Dp caída umbral‑lecho (m)<input type="number" id="localDp" value="0" step="0.01" /></label>
+            <label>F0 Froude sobre umbral<input type="number" id="localF0" value="0.37" step="0.01" /></label>
+            <label>d90 (m)<input type="number" id="localD90" value="0.0543" step="0.0001" /></label>
+            <label>h0 altura sobre umbral (m)<input type="number" id="localH0" value="1.46" step="0.01" /></label>
+            <label>hd altura aguas abajo (m)<input type="number" id="localHd" value="1.46" step="0.01" /></label>
+            <label>φ ángulo reposo (°)<input type="number" id="localPhi" value="35.7" step="0.1" /></label>
+            <label>δ ángulo incidencia (°)<input type="number" id="localDelta" value="90" step="0.1" /></label>
+          </div>
+          <div class="actions"><button id="calcLocal" class="primary">Calcular socavación local</button></div>
+        </article>
+        <article class="card result-card">
+          <h2>Resultado local</h2>
+          <div id="localResult" class="big-result">—</div>
+          <p id="localDetail" class="muted">Presiona calcular para obtener β′, α y Smax.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="temporal" class="panel">
+      <div class="grid two">
+        <article class="card">
+          <h2>Hidrograma y aporte sólido</h2>
+          <p>Ingresa factores de caudal respecto del caudal del período seleccionado. El balance usa capacidad MPM menos aporte sólido para degradar o agradar el lecho.</p>
+          <div class="form-grid">
+            <label>Aporte sólido aguas arriba<input type="number" id="solidSupply" value="0.70" step="0.01" /></label>
+            <label>Tipo de aporte
+              <select id="solidSupplyType"><option value="factor">Factor de capacidad local</option><option value="tonhr">Ton/hr constante</option></select>
+            </label>
+            <label>Factor acorazamiento<input type="number" id="armorFactor" value="0.35" step="0.01" /></label>
+            <label>Máx. cambio por paso (m)<input type="number" id="maxDzStep" value="0.15" step="0.01" /></label>
+          </div>
+          <textarea id="hydrographBox" rows="8" spellcheck="false">0,0.10
+1,0.35
+2,0.65
+3,1.00
+4,0.75
+5,0.45
+6,0.20</textarea>
+          <div class="actions"><button id="runTemporal" class="primary">Simular frontera móvil</button></div>
+        </article>
+        <article class="card">
+          <h2>Lectura del balance</h2>
+          <ul class="compact">
+            <li><strong>Capacidad &gt; aporte:</strong> el río erosiona y baja la cota de fondo.</li>
+            <li><strong>Aporte &gt; capacidad:</strong> hay depósito y sube la cota de fondo.</li>
+            <li><strong>Acorazamiento:</strong> el Dm efectivo aumenta hacia D84 cuando crece la erosión acumulada.</li>
+            <li><strong>Frontera móvil:</strong> la cota de fondo se actualiza por estación.</li>
+          </ul>
+        </article>
+      </div>
+      <article class="card wide">
+        <h2>Resultados de frontera móvil</h2>
+        <div class="table-wrap"><table id="mobileTable"></table></div>
+      </article>
+    </section>
+
+    <section id="results" class="panel">
+      <div class="grid three kpis">
+        <article class="stat"><span>Gs promedio</span><strong id="kpiGs">—</strong><small>Ton/hr</small></article>
+        <article class="stat"><span>Hs promedio</span><strong id="kpiHs">—</strong><small>m</small></article>
+        <article class="stat"><span>Sección crítica</span><strong id="kpiCritical">—</strong><small>mayor socavación</small></article>
+      </div>
+      <div class="grid two">
+        <article class="card"><h2>Perfil longitudinal</h2><canvas id="profileChart" width="920" height="360"></canvas></article>
+        <article class="card"><h2>Socavación por estación</h2><canvas id="scourChart" width="920" height="360"></canvas></article>
+      </div>
+      <article class="card wide">
+        <div class="table-head">
+          <h2>Tabla de resultados</h2>
+          <div class="actions slim">
+            <button id="exportCsv">Exportar CSV</button>
+            <button id="exportReport">Exportar informe HTML</button>
+          </div>
+        </div>
+        <div class="table-wrap"><table id="resultsTable"></table></div>
+      </article>
+      <article class="card wide">
+        <h2>Desarrollo técnico generado</h2>
+        <div id="reportBox" class="report"></div>
+      </article>
+    </section>
+
+    <section id="method" class="panel">
+      <article class="card wide method">
+        <h2>Ecuaciones implementadas</h2>
+        <h3>1. Strickler y rugosidad de partículas</h3>
+        <p><code>Ks = 1/n</code></p>
+        <p><code>Kr = 26 / d90^(1/6)</code>, con <code>d90</code> en metros.</p>
+        <h3>2. Arrastre de sedimentos MPM</h3>
+        <p><code>(Ks/Kr)^(3/2) · γw · J · R = 0.047 · (γs - γw) · dm + 0.25 · (γw/g)^(1/3) · (1 - γw/γs)^(2/3) · gs^(2/3)</code></p>
+        <p>Se despeja <code>gs</code>. Luego <code>Gs = gs · ancho_superficial</code> y se expresa en Ton/hr.</p>
+        <h3>3. Socavación generalizada método de Neill</h3>
+        <p><code>hc = ( q / (1.81 · sqrt(g · D84^0.33)) )^0.855</code></p>
+        <p><code>Hs_Neill = max(0, hc - tirante)</code></p>
+        <h3>4. Socavación generalizada Lischtvan‑Levediev</h3>
+        <p><code>h = ( q / (0.68 · β · Dm^0.28 · Ψ) )^(1/(χ+1))</code></p>
+        <p><code>Hs_LL = max(0, h - tirante)</code></p>
+        <h3>5. Socavación local Bormann‑Julien</h3>
+        <p><code>(Smax + Dp)/h0 = 1.25 · [sinφ/sin(φ+α)]^0.8 · (h0/d90)^0.4 · F0^1.6 · sinβ′</code></p>
+        <p><code>β′ = 0.316·sinδ + 0.15·ln((Dp+h0)/h0) + 0.13·ln(hd/h0) - 0.05·ln(F0)</code></p>
+        <h3>6. Frontera móvil simplificada</h3>
+        <p><code>Δz = - (Gs_capacidad - Gs_aporte) · Δt / [ρ_aparente · (1-λ) · ancho · Δx]</code></p>
+        <p>El signo negativo representa degradación cuando la capacidad supera al aporte. Es un balance conceptual para comparación de escenarios.</p>
+      </article>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>Aplicación estática. No envía datos a servidores. Compatible con GitHub Pages desde la raíz del repositorio.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
